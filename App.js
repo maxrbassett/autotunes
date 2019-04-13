@@ -1,8 +1,11 @@
 import { createBottomTabNavigator, createAppContainer } from 'react-navigation';
-import { StyleSheet, Text, View, Button, ActivityIndicator, AsyncStorage } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, AsyncStorage } from "react-native";
 import React from 'react';
 import SignInView from './src/SignInView';
 import AppNavigator from './src/AppNavigator';
+import SongActionsThumbnail from './src/SongActionsThumbnail';
+import { refreshTokens } from './spotify-queries';
+
 
 export default class App extends React.Component {
   constructor() {
@@ -12,44 +15,51 @@ export default class App extends React.Component {
       ipAddress: '',
       username: '',
       password: '',
-      loggedIn: false
+      loggedIn: false,
+      errorMessage: '',
+      base_url: '',
+      loadingSmall: false
     }
 
-    this.signInView = React.createRef();
     this.loginToSpotify = this.loginToSpotify.bind(this);
     this.submitIP = this.submitIP.bind(this);
+    this.setError = this.setError.bind(this);
+    this.testConnection = this.testConnection.bind(this);
+    this.tryAgainClicked = this.tryAgainClicked.bind(this);
+    this.newIPClicked = this.newIPClicked.bind(this);
   }
 
   componentDidMount() {
-    //fetch Ip address
-    this.setState({loading: true})
+    this.setState({ loading: true })
     AsyncStorage.getItem('IPADDRESS')
       .then((value) => {
-        if (value !== null) {
-          this.setState({ ipAddress: value, loading: false, loggedIn: true})
-        }else {
-          console.log("Didn't find anything");
-        }
-
+        AsyncStorage.getItem('expirationTime').then((tokenExpirationTime) => {
+          if (!tokenExpirationTime || new Date().getTime() > tokenExpirationTime) {
+            refreshTokens();
+          } else {
+            this.setState({ accessTokenAvailable: true });
+          }
+          if (value !== null) {
+            this.testConnection(value);
+            this.setState({ base_url: ('http://'+value+":3000"), ipAddress: value, loading: false, loggedIn: true })
+          } else {
+            console.log("Didn't find anything");
+          }
+        })
       }).catch((error) => {
-        console.error("Err: ", error)
+        this.setState({ errorMessage: "Cannot find IP Address" })
       })
   }
 
   submitIP(ip) {
     console.log("Submitting ip", ip)
-    fetch("http://" + ip + ":3000/test")
-      .then((response) => response.json())
+    fetch("http://" + ip + ":3000/")
+      .then((response) => response.text())
       .then((responseJSON) => {
-        console.log("Returned from query: ", responseJSON)
-        if (responseJSON.success) {
-          AsyncStorage.setItem('IPADDRESS', ip)
-            .catch((error) => {
-              console.error("Error saving data: ", error)
-            })
-        }else{
-          this.signInView.current.onChange("ipErrorMessage", "Cannot connect to your rPi")
-        }
+        AsyncStorage.setItem('IPADDRESS', ip)
+          .catch((error) => {
+            console.log("Error saving data: ", error)
+          })
       }).catch((err) => {
         console.log("ERr: ", err, this.signInView)
         this.signInView.current.onChage("ipErrorMessage", "Cannot connect to your rPi");
@@ -58,6 +68,33 @@ export default class App extends React.Component {
 
   loginToSpotify(email, password) {
     console.log("Logging in", email, password)
+  }
+
+  testConnection(ipAddress) {
+    fetch('http://' + ipAddress + ':3000/')
+      .then((response) => response.text())
+      .then((responseText) => {
+        console.log("response text: ", responseText);
+        if (responseText !== "") {
+          this.setState({ errorMessage: "", loadingSmall: false });
+        }
+      }).catch((err) => {
+        this.setState({ loadingSmall: false })
+        this.setError();
+      })
+  }
+
+  setError() {
+    this.setState({ errorMessage: "Could not connect to device." })
+  }
+
+  tryAgainClicked() {
+    this.setState({ loadingSmall: true, errorMessage: "" });
+    this.testConnection(this.state.ipAddress);
+  }
+
+  newIPClicked() {
+    this.setState({ loggedIn: false })
   }
 
   render() {
@@ -70,9 +107,24 @@ export default class App extends React.Component {
     }
     else if (this.state.loggedIn) {
       return (
-          <View style={ styles.container }>
-            <AppNavigator screenProps={ { base_url: this.state.ipAddress } } />
+        <View style={ styles.container }>
+          <AppNavigator screenProps={ { setError: this.setError, errorMessage: this.state.errorMessage, base_url: this.state.ipAddress } } />
+          <View style={ this.state.errorMessage === "" ? styles.hide : styles.errorMessage }>
+            <Text style={ styles.errorText }>{ this.state.errorMessage }</Text>
+            <TouchableOpacity style={ styles.tryAgainButton } onPress={ this.tryAgainClicked }>
+              <Text style={ styles.tryAgainText }>Try Again</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={ styles.tryAgainButton } onPress={ this.newIPClicked }>
+              <Text style={ styles.tryAgainText }>New IP</Text>
+            </TouchableOpacity>
           </View>
+          <View style={ this.state.loadingSmall ? styles.loadingSmall : styles.hide }>
+            <ActivityIndicator size="small" color="black" />
+          </View>
+          <View style={ styles.thumbnail }>
+            <SongActionsThumbnail setError={ this.setError } base_url={ this.state.base_url } navigation={ this.props.navigation } />
+          </View>
+        </View>
       );
     } else {
       return (
@@ -95,5 +147,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
 
+  },
+  thumbnail: {
+    flex: 1,
+    position: 'absolute',
+    bottom: 40,
+    width: '100%',
+  },
+  hide: {
+    display: 'none'
+  },
+  errorMessage: {
+    position: 'absolute',
+    top: 60,
+    height: 30,
+    width: "100%",
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    flexDirection: 'row',
+    backgroundColor: '#9c0100',
+  },
+  loadingSmall: {
+    position: 'absolute',
+    top: 70,
+    alignItems: 'center',
+    left: '50%'
+  },
+  errorText: {
+    color: 'white',
+  },
+  tryAgainText: {
+    color: '#ddd',
+    textDecorationLine: 'underline',
+    fontSize: 15
   }
 })

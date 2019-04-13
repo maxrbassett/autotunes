@@ -9,15 +9,21 @@
     "eject": "expo eject"
   },
   "dependencies": {
+    "base-64": "^0.1.0",
     "expo": "^31.0.2",
     "react": "16.5.0",
     "react-native": "https://github.com/expo/react-native/archive/sdk-31.0.0.tar.gz",
+    "react-native-24h-timepicker": "^1.0.0",
     "react-native-elements": "^1.1.0",
+    "react-native-radio-buttons": "^1.0.0",
     "react-native-text-ticker": "^0.14.0",
     "react-native-vector-icons": "^6.4.2",
     "react-native-volume-slider": "^0.5.1",
     "react-navigation": "^3.5.1",
-    "save": "^2.3.3"
+    "react-weekday-picker": "^1.0.8",
+    "save": "^2.3.3",
+    "socket.io-client": "^2.2.0",
+    "spotify-web-api-js": "^1.2.0"
   },
   "devDependencies": {
     "babel-preset-expo": "^5.0.0"

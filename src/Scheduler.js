@@ -1,20 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet, Button } from 'react-native';
 import SongActionsThumbnail from './SongActionsThumbnail';
-import SchedulerList from './SchedulerList';
-
+import SessionsList from './SessionsList';
+import {getMe} from '../spotify-queries';
 export default class SongActions extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            base_url: ""
+            base_url: "",
+            user: ""
         }
         this.playMusic = this.playMusic.bind(this);
         this.stopMusic = this.stopMusic.bind(this);
     }
 
     componentDidMount() {
-        this.setState({ base_url: this.props.screenProps.base_url })
+        getMe().then((user) => {
+            this.setState({user});
+        })
     }
 
     playMusic() {
@@ -46,12 +49,12 @@ export default class SongActions extends React.Component {
         return (
             <View style={ styles.container }>
                 <View style={ styles.schedulerList }>
-                    <SchedulerList />
+                    <SessionsList base_url={this.props.screenProps.base_url} navigation={ this.props.navigation } user={this.state.user} />
                 </View>
-                <Button onPress={ this.playMusic } title="Schedule Music" color="blue" />
-                <View style={ styles.thumbnail }>
+                {/* <Button onPress={ this.playMusic } title="Schedule Music" color="blue" /> */}
+                {/* <View style={ styles.thumbnail }>
                     <SongActionsThumbnail base_url={ this.state.base_url } navigation={ this.props.navigation } />
-                </View>
+                </View> */}
             </View>
         )
     }
